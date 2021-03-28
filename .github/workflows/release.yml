@@ -1,0 +1,44 @@
+name: Release
+
+env:
+  PRERELEASE_BRANCHES: alpha,beta,rc
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Establish context
+      id: context
+      uses: dolittle/establish-context-action@v2
+      with:
+        prerelease-branches: ${{ env.PRERELEASE_BRANCHES }}
+    - name: Increment version
+      id: increment-version
+      uses: dolittle/increment-version-action@v2
+      if: ${{ steps.context.outputs.should-publish == 'true' }}
+      with:
+        version: ${{ steps.context.outputs.current-version }}
+        release-type: ${{ steps.context.outputs.release-type }}
+    - name: Prepend to Changelog
+      uses: dolittle/add-to-changelog-action@v2
+      if: ${{ steps.context.outputs.should-publish == 'true' }}
+      with:
+        version: ${{ steps.increment-version.outputs.next-version }}
+        body: ${{ steps.context.outputs.pr-body }}
+        pr-url: ${{ steps.context.outputs.pr-url }}
+        changelog-path: CHANGELOG.md
+        user-email: build@dolittle.com
+        user-name: dolittle-build
+    - name: Create GitHub Release
+      uses: dolittle/github-release-action@v2
+      if: ${{ steps.context.outputs.should-publish == 'true' }}
+      with:
+        version: ${{ steps.increment-version.outputs.next-version }}
+        body: ${{ steps.context.outputs.pr-body }}
+
